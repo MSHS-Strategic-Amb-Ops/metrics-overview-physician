@@ -3485,7 +3485,7 @@ htmltools::browsable(
   tagList(
     div(tags$label("Summary by", `for` = "access-metrics-prov")),
     tags$select(
-      id = "new-pt-waitTime",
+      id = "access-metrics-prov",
       onchange = "Reactable.setGroupBy('access-metrics', this.value ? [this.value] : [])",
       tags$option("None", value = ""),
       lapply(c("Year", "Year-Month", "SITE", "Specialty Type", "Specialty"), tags$option)
