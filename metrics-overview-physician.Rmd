@@ -3481,18 +3481,18 @@ ________________________________________________________________________________
 #       onclick = "Reactable.downloadDataCSV('access-metrics-prov', 'Metric Overview by Provider')"
 #     ),
 
-# htmltools::browsable(
-#   tagList(
-#     div(tags$label("Summary by", `for` = "access-metrics")),
-#     tags$select(
-#       id = "new-pt-waitTime",
-#       onchange = "Reactable.setGroupBy('access-metrics', this.value ? [this.value] : [])",
-#       tags$option("None", value = ""),
-#       lapply(c("Year", "Year-Month", "SITE", "Specialty Type", "Specialty"), tags$option)
-#     ),
-#
-#     tags$hr("aria-hidden" = "true"),
-#
+htmltools::browsable(
+  tagList(
+    div(tags$label("Summary by", `for` = "access-metrics-prov")),
+    tags$select(
+      id = "new-pt-waitTime",
+      onchange = "Reactable.setGroupBy('access-metrics', this.value ? [this.value] : [])",
+      tags$option("None", value = ""),
+      lapply(c("Year", "Year-Month", "SITE", "Specialty Type", "Specialty"), tags$option)
+    ),
+
+    tags$hr("aria-hidden" = "true"),
+
 reactable(
   provider_merged,
   elementId = "access-metrics-prov",
@@ -4274,8 +4274,8 @@ reactable(
   ) # Close Columns
 
   ) # Close Reactable
-# ) # Close Taglist
-# ) # Close htmltools
+) # Close Taglist
+) # Close htmltools
 
 ```
 <br/>
