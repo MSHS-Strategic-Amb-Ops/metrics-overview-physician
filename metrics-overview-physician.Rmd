@@ -342,6 +342,12 @@ clarity_ser_tbl <- tbl(conn2, "CLARITY_SER")
 slot_view_tbl <- tbl(conn3, in_schema("OAO_PRODUCTION", "AMBULATORY_SLOT_TABLE"))
 temp_slot_tbl <- tbl(conn4, "AMBULATORY_SLOT_TABLE_TEMP")
 
+dep_mapping_tbl <- tbl(conn2, "CLARITY_DEP")
+dep_mapping <- dep_mapping_tbl %>%
+  dplyr::select(DEPARTMENT_ID, SPECIALTY) %>%
+  collect()
+                
+
 radiology_dep_mapping_tbl <- tbl(conn1, "RADIOLOGY_DEP_MAPPING")
 
 # access_raw_tbl <- tbl(conn5, in_schema("CLARITY", "MV_DM_PATIENT_ACCESS"))
@@ -357,25 +363,50 @@ department_conn <- tbl(conn5, dbplyr::ident_q('"CABOODLE"."DepartmentDim"'))
 clarity_ser_conn <- tbl(conn5, dbplyr::ident_q('"CLARITY"."CLARITY_SER"'))  
 clarity_ser_2_conn <- tbl(conn5, dbplyr::ident_q('"CLARITY"."CLARITY_SER_2"'))  
 
-
-
-department <- department_conn %>%
-  dplyr::select(DepartmentEpicId, PostalCode) %>%
+dept <-  tbl(conn2, "CLARITY_DEP") %>%
+  head(10) %>%
   collect()
-
-clarity_referrals_tbl <- tbl(conn5, dbplyr::ident_q('"Clarity"."REFERRAL"'))
-
-
-clarity_ser_tbl <- tbl(conn2, "CLARITY_SER")
-clarity_ser_2_tbl <- tbl(conn2, "CLARITY_SER_2")
-
-clarity_ser <- clarity_ser_tbl %>% 
-  select(PROV_ID, PROV_TYPE, PROV_NAME) %>%
-  collect()
-
-clarity_ser_2 <- clarity_ser_2_tbl %>% 
-  select(PROV_ID, NPI) %>% 
-  collect()
+# order_conn <- tbl(conn5, dbplyr::ident_q('"CABOODLE"."ProcedureOrderFact"'))
+# order_proc <- orders_raw_tbl %>%
+#   filter(DESCRIPTION %LIKE% "%ECHO%") %>%
+#   head(1000) %>%
+#   collect()
+# 
+# order_fact <- order_conn %>%
+#   head(1000) %>%
+#   collect()
+# 
+# referral_fact <- caboodle_referralFact_conn %>%
+#   head(100) %>%
+#   collect()
+# 
+# referrals <- caboodle_referrals_conn %>%
+#   head(100) %>%
+#   collect()
+# 
+# department <- access_raw_tbl %>%
+#   filter(DEPARTMENT_NAME == "55 E 34TH ST RAD BONE DENSITY") %>%
+#   collect()
+# 
+# 
+# 
+# department <- department_conn %>%
+#   dplyr::select(DepartmentEpicId, PostalCode) %>%
+#   collect()
+# 
+# clarity_referrals_tbl <- tbl(conn5, dbplyr::ident_q('"Clarity"."REFERRAL"'))
+# 
+# 
+# clarity_ser_tbl <- tbl(conn2, "CLARITY_SER")
+# clarity_ser_2_tbl <- tbl(conn2, "CLARITY_SER_2")
+# 
+# clarity_ser <- clarity_ser_tbl %>% 
+#   select(PROV_ID, PROV_TYPE, PROV_NAME) %>%
+#   collect()
+# 
+# clarity_ser_2 <- clarity_ser_2_tbl %>% 
+#   select(PROV_ID, NPI) %>% 
+#   collect()
 
 ```
 
@@ -397,32 +428,37 @@ current_year_month <- paste0(current_year,"-",current_month)
 
 ```{r Scheduling Data Processing, echo = FALSE, warning = FALSE, message = FALSE}
 
-# access_raw <- access_raw_tbl %>%
-#   left_join(clarity_ser_tbl %>% select(PROV_ID, PROV_TYPE)) %>%
-#   filter(PROV_TYPE == "Physician") %>%
-#   filter(SITE %in% c("MSUS", "MSH- AMBULATORY CARE", "NETWORK", "MSW", "MSH-MSDFP",
-#                      "MSDMG", "MSB", "MSM", "MSQ", "MSBI", "MSSN", "NYEE")) %>%
-#   mutate(appt_year = year(CONTACT_DATE)) %>%
-#   filter(appt_year >= 2024) %>%
-#   filter(DERIVED_STATUS_DESC == "Arrived") %>%
-#   group_by(appt_year, VISIT_GROUP_NUM, PRC_NAME, APPT_LENGTH) %>%
-#   summarise(total = n()) %>%
-#   collect()
-# 
-# require(openxlsx)
-# write.xlsx(access_raw, "Volume by Appt Length.xlsx")
+access <- access_raw_tbl %>%
+  filter(year(CONTACT_DATE) == 2025) %>%
+  filter(month(CONTACT_DATE) == 2) %>%
+  filter(SCHED_METHOD %LIKE% "%Fast Pass%") %>%
+  collect()
 
-# access <- access_raw_tbl %>%
-#   filter(PAT_ENC_CSN_ID == 100176727351) %>%
-#   # mutate(appt_year = year(CONTACT_DATE),
-#   #        appt_month = month(CONTACT_DATE)) %>%
-#   # filter(SITE == "MSUS") %>%
-#   # filter(appt_year == 2025) %>%
-#   # filter(appt_month == 1) %>%
-#   collect()
+fatspass <- access_raw_tbl %>%
+  filter(PAT_ID == "Z1947030") %>%
+  collect()
+  
 
-# require(openxlsx)
-# write.xlsx(access, "MSUS Scheduling Data Jan25.xlsx")
+
+f_sched_appt <- f_sched_appt_tbl %>%
+  filter(PAT_ENC_CSN_ID == "100181537803") %>%
+  collect()
+
+
+no_show <- access_raw_tbl %>%
+  filter(year(CONTACT_DATE) == 2025) %>%
+  filter(month(CONTACT_DATE) == 2) %>%
+  filter(CONTACT_DATE < TO_DATE(date_start, "YYYY-MM-DD HH24:MI:SS")) %>%
+  mutate(cancel_lead_days = CONTACT_DATE - APPT_CANC_DATE) %>%
+  # mutate(lead_days =  as.numeric(difftime(as.Date(APPT_MADE_DATE), as.Date(CONTACT_DATE), units = "days"))) %>%
+  mutate(appt_status = ifelse(DERIVED_STATUS_DESC == "Canceled" & (cancel_lead_days <=0 | is.na(cancel_lead_days)), "SameDay_Canceled", DERIVED_STATUS_DESC)) %>%
+  group_by(SITE, DEPT_SPECIALTY_NAME, DEPARTMENT_NAME, DEPARTMENT_ID, PRC_NAME, PRC_ID, appt_status) %>%
+  summarise(total = n()) %>%
+  collect() %>%
+  pivot_wider(names_from = "appt_status",
+              values_from = "total",
+              values_fill = 0)
+
 ```
 
 ```{r}
@@ -466,10 +502,7 @@ slot_util <- slot_view_tbl %>%
          slot_month = month(SLOT_DATE)) %>%
   filter(slot_year >= prior_year) %>%
   filter(SLOT_DATE < TO_DATE(date_start, "YYYY-MM-DD HH24:MI:SS")) %>%
-  mutate(SPECIALTY_GRP = ifelse(CAMPUS_SPECIALTY %in% 
-                                  c("Adolescent Medicine", "Community and Preventive Medicine", 
-                                    "Family Medicine", "Internal Medicine", "Pediatrics", "Geriatrics", "Gerontology", "Urgent Care"), "Primary Care", "Specialty")) %>%
-  group_by(CAMPUS, SPECIALTY_GRP, CAMPUS_SPECIALTY, DEPARTMENT, DEPARTMENT_ID, PROVIDER, PROV_ID, slot_year, slot_month) %>%
+  group_by(CAMPUS, DEPARTMENT_ID, DEPARTMENT, PROVIDER, PROV_ID, slot_year, slot_month) %>%
   summarise(AVAILABLE_MINS= sum(AVAILABLE_MINS, na.rm = T),
             SCHEDULED_MINS = sum(SCHEDULED_MINS, na.rm = T),
             ARRIVED_MINS = sum(ARRIVED_MINS, na.rm = T)) %>%
@@ -477,7 +510,15 @@ slot_util <- slot_view_tbl %>%
   filter(sched_util > 0.3 & sched_util <= 1.5) %>%
   collect() %>%
   left_join(clarity_ser) %>%
-  left_join(clarity_ser_2)
+  left_join(clarity_ser_2) %>%
+  left_join(dep_mapping) %>%
+  mutate(SPECIALTY_GRP = ifelse(SPECIALTY %in%
+                                  c("Adolescent Medicine", "Community and Preventive Medicine",
+                                    "Family Medicine", "Internal Medicine", "Pediatrics", "Geriatrics", "Gerontology", "Urgent Care"), "Primary Care", "Specialty")) %>%
+  rename(DEPT_SPECIALTY_NAME = SPECIALTY) %>%
+  relocate(DEPT_SPECIALTY_NAME, .before = DEPARTMENT) %>%
+  relocate(DEPARTMENT_ID, .after = DEPARTMENT) %>%
+  relocate(SPECIALTY_GRP, .before = DEPT_SPECIALTY_NAME) 
 
 
 
@@ -1689,12 +1730,13 @@ appt_online_prov <- access_raw_tbl %>%
                                   c("Adolescent Medicine", "Community and Preventive Medicine", 
                                     "Family Medicine", "Internal Medicine", "Pediatrics", "Geriatrics", "Gerontology", "Urgent Care"), "Primary Care", "Specialty")) %>%
 
-  filter(year(APPT_MADE_DATE) >= prior_year) %>%
+  filter(year(APPT_MADE_DATE) >= current_year) %>%
   filter(APPT_MADE_DATE < TO_DATE(date_start, "YYYY-MM-DD HH24:MI:SS")) %>%
   left_join(f_sched_appt_tbl %>%
               dplyr::select(PAT_ENC_CSN_ID, COULD_DIR_SCHED_C, COULD_OPEN_SCHED_C, COULD_TKT_SCHED_C, APPT_SCHED_SOURCE_C, PAT_ONLINE_YN)) %>%
   group_by(SITE, SPECIALTY_GRP, DEPT_SPECIALTY_NAME, DEPARTMENT_NAME, DEPARTMENT_ID, PROV_ID, PROV_TYPE, PROV_NAME,
-           appt_made_year, appt_made_month,
+           appt_made_year,
+           visit_type, PRC_ID, PRC_NAME,
            COULD_DIR_SCHED_C, COULD_OPEN_SCHED_C, COULD_TKT_SCHED_C, APPT_SCHED_SOURCE_C, APPT_SCHED_SOURCE, DERIVED_STATUS_DESC, SCHED_METHOD, PAT_ONLINE_YN, WALK_IN_YN) %>%
   summarise(total = n()) %>%
   collect()
